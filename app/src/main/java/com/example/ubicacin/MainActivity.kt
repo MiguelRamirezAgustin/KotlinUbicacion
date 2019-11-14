@@ -1,6 +1,8 @@
 package com.example.ubicacin
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -8,6 +10,10 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.tasks.OnSuccessListener
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,6 +24,8 @@ class MainActivity : AppCompatActivity() {
     private val CODIGO_SOLICITUD_PERMISO = 100
     //variable que permite obtener datos de la ubicación
     var fusedLocationClient: FusedLocationProviderClient? = null
+    var locationRequest:LocationRequest? = null
+    var callback:LocationCallback? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,6 +33,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = FusedLocationProviderClient( this@MainActivity)
+        //objeto para configura la ubicacion
+        inicializarLocationRequest()
+
+    }
+
+
+    private fun inicializarLocationRequest(){
+        locationRequest = LocationRequest()
+        locationRequest?.interval = 1000
+        locationRequest?.fastestInterval = 5000
+        locationRequest?.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
     }
 
     //valida permisos
@@ -36,9 +55,33 @@ class MainActivity : AppCompatActivity() {
         return hayUbicacionOrdinario && hayUbicacionPrecisa
     }
 
-    private fun obtenerUbicacion(){
-        
 
+    // @SuppressLint("MissingPermission") para no validar los permisos  que estan el al funtion validarPermisosUbicacion (hayUbicacionPrecisa, hayUbicacionOrdinario)
+    @SuppressLint("MissingPermission")
+    private fun obtenerUbicacion(){
+
+        //obtener ubicacion de forma estatica, sucede al ingresar aun mapa y ingreso a la palicacion obtiene la ubicacion del mapa
+       /* fusedLocationClient?.lastLocation?.addOnSuccessListener(this@MainActivity, object :OnSuccessListener<Location>{
+            //si se pudo obtener la ultima ubicacion
+            override fun onSuccess(location: Location?) {
+                if(location != null){
+                    Toast.makeText(applicationContext, location?.latitude.toString() + " - " + location?.longitude.toString(), Toast.LENGTH_LONG).show()
+                }
+            }
+
+        })*/
+
+         callback = object :LocationCallback(){
+            //contiene las coodenadas de la ubicacion  locationResult:contine arrego de ubicaciones mas recientes
+            override fun onLocationResult(locationResult: LocationResult?) {
+                super.onLocationResult(locationResult)
+                for (ubicacion in locationResult?.locations!!){
+                    Toast.makeText(applicationContext, ubicacion.latitude.toString() + " , " + ubicacion.longitude.toString(), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        fusedLocationClient?.requestLocationUpdates(locationRequest, callback, null)
     }
 
     private fun pedirPermisos(){
@@ -76,6 +119,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //se detiene el servicio
+    private fun detenetActualizacionUbicacion(){
+        fusedLocationClient?.removeLocationUpdates(callback)
+    }
+
     //inicaliza la palicacion
     override fun onStart() {
         super.onStart()
@@ -85,5 +133,12 @@ class MainActivity : AppCompatActivity() {
         }else{
             pedirPermisos()
         }
+    }
+
+
+    //detiene la ubicacion
+    override fun onPause() {
+        super.onPause()
+        detenetActualizacionUbicacion()
     }
 }
